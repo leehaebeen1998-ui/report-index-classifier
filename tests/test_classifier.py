@@ -3,7 +3,15 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from index_classifier import ClassificationEngine, ReportRowCleaner, append_user_correction, filter_indexes_by_scope, normalize_row
+from index_classifier import (
+    ClassificationEngine,
+    ReportRowCleaner,
+    append_user_correction,
+    filter_indexes_by_scope,
+    load_simple_rules_index,
+    normalize_row,
+    simple_rules_to_index,
+)
 from index_classifier.ai import AIRequest, AIResponse
 
 
@@ -215,6 +223,51 @@ class ClassifierTests(unittest.TestCase):
             self.assertNotIn("불필요컬럼", cleaned.read_text(encoding="utf-8-sig"))
             self.assertIn("source_row_number", failed.read_text(encoding="utf-8-sig"))
             self.assertIn("applied_index_scope", log.read_text(encoding="utf-8"))
+
+    def test_simple_rules_table_builds_index_without_json_editing(self):
+        index = simple_rules_to_index(
+            [
+                {
+                    "순위": "0",
+                    "규칙": "강제 지정 URL",
+                    "매칭값": "https://example.com/drug",
+                    "카테고리": "마약",
+                    "신뢰도": "1",
+                    "사용": "O",
+                },
+                {
+                    "순위": "2",
+                    "규칙": "그룹명",
+                    "매칭값": "형사",
+                    "카테고리": "형사",
+                    "신뢰도": "0.9",
+                    "사용": "O",
+                },
+            ]
+        )
+
+        forced = ClassificationEngine(index).classify_row({"랜딩URL": "https://example.com/drug?x=1"})
+        group = ClassificationEngine(index).classify_row({"광고그룹": "형사_구속"})
+
+        self.assertEqual(forced.category, "마약")
+        self.assertEqual(forced.matched_priority, 0)
+        self.assertEqual(group.category, "형사")
+        self.assertEqual(group.matched_priority, 2)
+
+    def test_simple_rules_can_be_loaded_from_csv(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "rules.csv"
+            path.write_text(
+                "순위,규칙,매칭값,카테고리,신뢰도,사용\n"
+                "4,캠페인명,브랜드,브랜드,0.85,O\n",
+                encoding="utf-8-sig",
+            )
+
+            index = load_simple_rules_index(path)
+            result = ClassificationEngine(index).classify_row({"캠페인": "브랜드 캠페인"})
+
+            self.assertEqual(result.category, "브랜드")
+            self.assertEqual(result.matched_priority, 4)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+﻿account_id,brand_id,campaign_type,campaign_name,group_name,keyword_name,url,creative_name,ad_text,category,classification_confidence,classification_priority,classification_rule_id,classification_source,classification_needs_review
+,,Naver SA,검색_형사,형사_구속,형사변호사,https://example.com/criminal,형사 소재,형사 사건 상담,검색광고,0.8,1,simple-campaign_type-001,campaign_type_rules,False
+,,Naver SA,검색_마약,일반그룹,마약변호사,https://example.com/drug?utm=sample,마약 소재,마약 사건 상담,마약,1.0,0,simple-forced_url-001,forced_url_mapping,False
+,,Meta,브랜드 캠페인,,,https://unknown.example/path,브랜드 소재,브랜드 인지도,브랜드,0.85,4,simple-campaign_name-001,campaign_name_rules,False

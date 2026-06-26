@@ -4,6 +4,7 @@ from .cleaning import CleaningConfig, ReportCleanResult, ReportRowCleaner, clean
 from .columns import normalize_row
 from .models import ClassificationResult
 from .scope import filter_indexes_by_scope, index_matches_scope
+from .simple_rules import load_simple_rules_index, simple_rules_to_index
 from .store import append_user_correction, load_index, save_index
 
 __all__ = [
@@ -23,6 +24,8 @@ __all__ = [
     "filter_indexes_by_scope",
     "index_matches_scope",
     "load_index",
+    "load_simple_rules_index",
     "normalize_row",
     "save_index",
+    "simple_rules_to_index",
 ]

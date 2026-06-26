@@ -35,6 +35,18 @@
 
 ## 사용 예시
 
+가장 쉬운 사용법은 쉬운 규칙표를 만들고 아래 명령을 실행하는 것입니다.
+
+```cmd
+python clean_report.py examples/raw-report.example.csv examples/simple-index-rules.example.csv
+```
+
+사용자가 주로 수정할 파일:
+
+```text
+examples\simple-index-rules.example.csv
+```
+
 ```python
 from index_classifier import classify_row, load_index
 
@@ -65,5 +77,6 @@ candidate_indexes = filter_indexes_by_scope(
 
 - [인덱스 분류 설계](docs/index-classification-design.md)
 - [보고서 로우 정제 모듈](docs/report-row-cleaning-module.md)
+- [쉬운 인덱스 규칙표](docs/simple-index-rules.md)
 - [인덱스 JSON 스키마](schemas/category-index.schema.json)
 - [인덱스 예시](examples/category-index.example.json)

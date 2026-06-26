@@ -1,0 +1,58 @@
+{
+  "source_report_path": "examples\\raw-report.example.csv",
+  "cleaned_report_path": "examples\\simple-cleaned.example.csv",
+  "failed_rows_path": "examples\\simple-failed.example.csv",
+  "total_rows": 3,
+  "failed_rows": 0,
+  "applied_index_scope": {
+    "brand_id": "default",
+    "account_ids": []
+  },
+  "applied_index_version": "1.0.0",
+  "entries": [
+    {
+      "source_row_number": 2,
+      "category": "검색광고",
+      "confidence": 0.8,
+      "matched_priority": 1,
+      "matched_rule_id": "simple-campaign_type-001",
+      "source": "campaign_type_rules",
+      "needs_review": false,
+      "evidence": {
+        "field": "campaign_type",
+        "value": "Naver SA",
+        "pattern": "Naver SA",
+        "match_type": "contains"
+      }
+    },
+    {
+      "source_row_number": 3,
+      "category": "마약",
+      "confidence": 1.0,
+      "matched_priority": 0,
+      "matched_rule_id": "simple-forced_url-001",
+      "source": "forced_url_mapping",
+      "needs_review": false,
+      "evidence": {
+        "field": "url",
+        "value": "https://example.com/drug?utm=sample",
+        "url": "https://example.com/drug"
+      }
+    },
+    {
+      "source_row_number": 4,
+      "category": "브랜드",
+      "confidence": 0.85,
+      "matched_priority": 4,
+      "matched_rule_id": "simple-campaign_name-001",
+      "source": "campaign_name_rules",
+      "needs_review": false,
+      "evidence": {
+        "field": "campaign_name",
+        "value": "브랜드 캠페인",
+        "pattern": "브랜드",
+        "match_type": "contains"
+      }
+    }
+  ]
+}

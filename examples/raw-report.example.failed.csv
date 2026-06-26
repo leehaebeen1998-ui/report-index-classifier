@@ -1,0 +1,2 @@
+﻿source_row_number,account_id,brand_id,campaign_type,campaign_name,group_name,keyword_name,url,creative_name,ad_text,category,classification_confidence,classification_priority,classification_rule_id,classification_source,classification_needs_review
+4,,,Meta,브랜드 캠페인,,,https://unknown.example/path,브랜드 소재,브랜드 인지도,,0.0,,,unresolved,True
