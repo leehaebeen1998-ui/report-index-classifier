@@ -2,37 +2,27 @@
 
 일반 사용자는 JSON 파일을 직접 수정하지 않는다.
 
-권장 방식은 `rule_editor.py`를 실행해서 프로그램 안에서 규칙을 입력하는 것이다.
+권장 방식은 `start_rule_editor.bat`를 실행해서 탭 화면에서 규칙을 입력하는 것이다.
 
 ```cmd
-python rule_editor.py examples/simple-index-rules.example.csv
+start_rule_editor.bat
 ```
 
-프로그램 메뉴:
+또는 직접 실행한다.
 
-```text
-1. 규칙 추가
-2. 규칙 목록 보기
-3. 규칙 삭제
-4. 종료
+```cmd
+python rule_editor_gui.py examples/simple-index-rules.example.csv
 ```
 
-입력 예시:
+프로그램 탭:
 
 ```text
-추가할 규칙 종류를 선택하세요.
-0. 강제 지정 URL
-1. 캠페인 유형
-2. 그룹명
-3. 키워드명
-4. 캠페인명
-5. 일반 URL
-
-순위 번호: 0
-매칭값: https://example.com/drug
-카테고리: 마약
-신뢰도 [1]:
-메모 [빈칸 가능]: 이 URL은 무조건 마약
+0 강제 지정 URL
+1 캠페인 유형
+2 그룹명
+3 키워드명
+4 캠페인명
+5 일반 URL
 ```
 
 프로그램은 입력값을 아래 CSV 규칙표에 저장한다.

@@ -35,12 +35,18 @@
 
 ## 사용 예시
 
-가장 쉬운 사용법은 프로그램에서 규칙을 입력한 뒤 정제를 실행하는 것입니다.
+가장 쉬운 사용법은 탭 화면에서 규칙을 입력한 뒤 정제를 실행하는 것입니다.
 
 규칙 입력:
 
 ```cmd
-python rule_editor.py examples/simple-index-rules.example.csv
+start_rule_editor.bat
+```
+
+또는 직접 실행:
+
+```cmd
+python rule_editor_gui.py examples/simple-index-rules.example.csv
 ```
 
 정제 실행:
