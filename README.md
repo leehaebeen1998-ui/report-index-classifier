@@ -35,13 +35,21 @@
 
 ## 사용 예시
 
-가장 쉬운 사용법은 쉬운 규칙표를 만들고 아래 명령을 실행하는 것입니다.
+가장 쉬운 사용법은 프로그램에서 규칙을 입력한 뒤 정제를 실행하는 것입니다.
+
+규칙 입력:
+
+```cmd
+python rule_editor.py examples/simple-index-rules.example.csv
+```
+
+정제 실행:
 
 ```cmd
 python clean_report.py examples/raw-report.example.csv examples/simple-index-rules.example.csv
 ```
 
-사용자가 주로 수정할 파일:
+프로그램이 저장하는 규칙표:
 
 ```text
 examples\simple-index-rules.example.csv

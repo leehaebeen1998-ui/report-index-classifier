@@ -12,6 +12,7 @@ from index_classifier import (
     normalize_row,
     simple_rules_to_index,
 )
+from index_classifier.simple_rule_table import append_simple_rule, delete_simple_rule, read_simple_rule_rows
 from index_classifier.ai import AIRequest, AIResponse
 
 
@@ -268,6 +269,27 @@ class ClassifierTests(unittest.TestCase):
 
             self.assertEqual(result.category, "브랜드")
             self.assertEqual(result.matched_priority, 4)
+
+    def test_rule_table_helpers_append_and_delete_rules(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "rules.csv"
+
+            appended = append_simple_rule(
+                path,
+                priority=0,
+                match_value="https://example.com/drug",
+                category="마약",
+                memo="강제 URL",
+            )
+            rows = read_simple_rule_rows(path)
+
+            self.assertEqual(appended["규칙"], "강제 지정 URL")
+            self.assertEqual(rows[0]["카테고리"], "마약")
+
+            removed = delete_simple_rule(path, one_based_index=1)
+
+            self.assertEqual(removed["매칭값"], "https://example.com/drug")
+            self.assertEqual(read_simple_rule_rows(path), [])
 
 
 if __name__ == "__main__":
