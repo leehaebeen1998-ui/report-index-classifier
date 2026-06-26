@@ -1,0 +1,221 @@
+import unittest
+
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from index_classifier import ClassificationEngine, ReportRowCleaner, append_user_correction, filter_indexes_by_scope, normalize_row
+from index_classifier.ai import AIRequest, AIResponse
+
+
+def sample_index():
+    return {
+        "index_version": "1.0.0",
+        "scope": {"brand_id": "brand_001", "account_ids": ["account_001"]},
+        "column_aliases": {
+            "campaign_type": ["매체"],
+            "group_name": ["광고그룹"],
+            "keyword_name": ["키워드"],
+            "campaign_name": ["캠페인"],
+            "url": ["랜딩URL"],
+        },
+        "forced_url_mapping": [
+            {
+                "id": "forced-drug",
+                "url": "https://example.com/drug",
+                "category": "마약",
+            }
+        ],
+        "campaign_type_rules": [
+            {
+                "id": "type-meta",
+                "field": "campaign_type",
+                "match_type": "contains",
+                "patterns": ["Meta"],
+                "category": "Meta",
+                "confidence": 0.95,
+            }
+        ],
+        "group_name_rules": [
+            {
+                "id": "group-criminal",
+                "field": "group_name",
+                "match_type": "contains",
+                "patterns": ["형사"],
+                "category": "형사",
+                "confidence": 0.9,
+            }
+        ],
+        "keyword_rules": [
+            {
+                "id": "keyword-divorce",
+                "field": "keyword_name",
+                "match_type": "contains",
+                "patterns": ["이혼"],
+                "category": "이혼",
+                "confidence": 0.92,
+                "campaign_type_filter": ["Naver SA"],
+            }
+        ],
+        "campaign_name_rules": [
+            {
+                "id": "campaign-tax",
+                "field": "campaign_name",
+                "match_type": "contains",
+                "patterns": ["조세"],
+                "category": "조세",
+                "confidence": 0.8,
+            }
+        ],
+        "url_rules": [
+            {
+                "id": "url-criminal",
+                "field": "url",
+                "match_type": "contains",
+                "patterns": ["/criminal"],
+                "category": "형사",
+                "confidence": 0.65,
+            }
+        ],
+        "user_corrections": [],
+        "ai_fallback": {
+            "enabled": True,
+            "min_confidence": 0.7,
+            "analyze_fields": ["ad_text"],
+        },
+    }
+
+
+class FakeAIAnalyzer:
+    def analyze(self, request: AIRequest) -> AIResponse:
+        return AIResponse(
+            category="성범죄",
+            confidence=0.88,
+            evidence={"field": "ad_text", "value": request.normalized_row.get("ad_text")},
+        )
+
+
+class ClassifierTests(unittest.TestCase):
+    def test_normalize_row_maps_report_columns(self):
+        row = {"매체": "Naver SA", "광고그룹": "형사_구속", "랜딩URL": "https://example.com"}
+
+        normalized = normalize_row(row, sample_index()["column_aliases"])
+
+        self.assertEqual(normalized["campaign_type"], "Naver SA")
+        self.assertEqual(normalized["group_name"], "형사_구속")
+        self.assertEqual(normalized["url"], "https://example.com")
+
+    def test_forced_url_mapping_wins_over_group_name(self):
+        row = {
+            "매체": "Naver SA",
+            "광고그룹": "형사_구속",
+            "랜딩URL": "https://example.com/drug?utm=1",
+        }
+
+        result = ClassificationEngine(sample_index()).classify_row(row)
+
+        self.assertEqual(result.category, "마약")
+        self.assertEqual(result.matched_priority, 0)
+        self.assertEqual(result.confidence, 1.0)
+
+    def test_priority_uses_campaign_type_before_group_name(self):
+        row = {
+            "매체": "Meta",
+            "광고그룹": "형사_구속",
+            "랜딩URL": "https://example.com/criminal",
+        }
+
+        result = ClassificationEngine(sample_index()).classify_row(row)
+
+        self.assertEqual(result.category, "Meta")
+        self.assertEqual(result.matched_priority, 1)
+
+    def test_keyword_rule_can_be_limited_by_campaign_type(self):
+        row = {"매체": "Naver SA", "키워드": "이혼전문변호사"}
+
+        result = ClassificationEngine(sample_index()).classify_row(row)
+
+        self.assertEqual(result.category, "이혼")
+        self.assertEqual(result.matched_priority, 3)
+
+    def test_low_confidence_rule_does_not_use_ai_when_rule_matched(self):
+        row = {
+            "랜딩URL": "https://example.com/criminal",
+            "광고 문구": "성범죄 사건 상담",
+        }
+
+        result = ClassificationEngine(sample_index(), ai_analyzer=FakeAIAnalyzer()).classify_row(row)
+
+        self.assertEqual(result.category, "형사")
+        self.assertEqual(result.matched_priority, 5)
+        self.assertTrue(result.needs_review)
+
+    def test_ai_is_used_only_when_no_rule_matches(self):
+        row = {"광고 문구": "성범죄 사건 상담"}
+
+        result = ClassificationEngine(sample_index(), ai_analyzer=FakeAIAnalyzer()).classify_row(row)
+
+        self.assertEqual(result.category, "성범죄")
+        self.assertEqual(result.matched_priority, 6)
+
+    def test_user_correction_is_appended_without_mutating_original_index(self):
+        index = sample_index()
+
+        updated = append_user_correction(
+            index,
+            category="형사",
+            evidence={"group_name": "형사_구속"},
+            correction_id="correction-test",
+            created_at="2026-06-25T00:00:00+09:00",
+        )
+
+        self.assertEqual(index["user_corrections"], [])
+        self.assertEqual(updated["user_corrections"][0]["category"], "형사")
+        self.assertEqual(updated["user_corrections"][0]["id"], "correction-test")
+
+    def test_scope_filter_only_selects_index_without_classifying_by_scope(self):
+        first = sample_index()
+        second = sample_index()
+        second["scope"] = {"brand_id": "brand_002", "account_ids": ["account_002"]}
+
+        matches = filter_indexes_by_scope(
+            [first, second],
+            brand_id="brand_001",
+            account_id="account_001",
+        )
+
+        self.assertEqual(matches, [first])
+
+    def test_cleaner_writes_cleaned_failed_and_index_log_files(self):
+        with TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            source = temp / "raw.csv"
+            cleaned = temp / "cleaned.csv"
+            failed = temp / "failed.csv"
+            log = temp / "index-log.json"
+            source.write_text(
+                "매체,광고그룹,랜딩URL,불필요컬럼\n"
+                "Naver SA,형사_구속,https://example.com/criminal,drop\n"
+                "Naver SA,,https://unknown.example/path,drop\n",
+                encoding="utf-8-sig",
+            )
+
+            result = ReportRowCleaner(sample_index()).clean_file(
+                source,
+                cleaned_path=cleaned,
+                failed_path=failed,
+                log_path=log,
+            )
+
+            self.assertEqual(result.total_rows, 2)
+            self.assertEqual(result.cleaned_rows, 2)
+            self.assertTrue(cleaned.exists())
+            self.assertTrue(failed.exists())
+            self.assertTrue(log.exists())
+            self.assertIn("category", cleaned.read_text(encoding="utf-8-sig"))
+            self.assertNotIn("불필요컬럼", cleaned.read_text(encoding="utf-8-sig"))
+            self.assertIn("source_row_number", failed.read_text(encoding="utf-8-sig"))
+            self.assertIn("applied_index_scope", log.read_text(encoding="utf-8"))
+
+
+if __name__ == "__main__":
+    unittest.main()

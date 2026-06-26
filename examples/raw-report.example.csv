@@ -1,0 +1,4 @@
+매체,캠페인,광고그룹,키워드,랜딩URL,소재명,광고 문구,불필요컬럼
+Naver SA,검색_형사,형사_구속,형사변호사,https://example.com/criminal,형사 소재,형사 사건 상담,drop
+Naver SA,검색_마약,일반그룹,마약변호사,https://example.com/drug?utm=sample,마약 소재,마약 사건 상담,drop
+Meta,브랜드 캠페인,,,https://unknown.example/path,브랜드 소재,브랜드 인지도,drop

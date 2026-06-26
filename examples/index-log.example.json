@@ -1,0 +1,56 @@
+{
+  "source_report_path": "examples/raw-report.example.csv",
+  "cleaned_report_path": "examples/cleaned-report.example.csv",
+  "failed_rows_path": "examples/failed-rows.example.csv",
+  "total_rows": 3,
+  "failed_rows": 1,
+  "applied_index_scope": {
+    "brand_id": "brand_law_001",
+    "account_ids": [
+      "naver_001",
+      "google_001"
+    ]
+  },
+  "applied_index_version": "1.0.0",
+  "entries": [
+    {
+      "source_row_number": 2,
+      "category": "형사",
+      "confidence": 0.9,
+      "matched_priority": 2,
+      "matched_rule_id": "group-criminal-001",
+      "source": "group_name_rules",
+      "needs_review": false,
+      "evidence": {
+        "field": "group_name",
+        "value": "형사_구속",
+        "pattern": "형사",
+        "match_type": "contains"
+      }
+    },
+    {
+      "source_row_number": 3,
+      "category": "마약",
+      "confidence": 1.0,
+      "matched_priority": 0,
+      "matched_rule_id": "forced-drug-001",
+      "source": "forced_url_mapping",
+      "needs_review": false,
+      "evidence": {
+        "field": "url",
+        "value": "https://example.com/drug?utm=sample",
+        "url": "https://example.com/drug"
+      }
+    },
+    {
+      "source_row_number": 4,
+      "category": null,
+      "confidence": 0.0,
+      "matched_priority": null,
+      "matched_rule_id": null,
+      "source": "unresolved",
+      "needs_review": true,
+      "evidence": {}
+    }
+  ]
+}
