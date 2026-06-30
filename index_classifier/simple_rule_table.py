@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 import csv
+import errno
+import base64
+import os
+import io
+import subprocess
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +45,7 @@ def read_simple_rule_rows(path: str | Path) -> list[dict[str, Any]]:
     if not rule_path.exists():
         return []
 
-    with rule_path.open("r", encoding="utf-8-sig", newline="") as file:
+    with open(os.fspath(rule_path), "r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file)
         return [dict(row) for row in reader]
 
@@ -47,11 +53,73 @@ def read_simple_rule_rows(path: str | Path) -> list[dict[str, Any]]:
 def write_simple_rule_rows(path: str | Path, rows: list[dict[str, Any]]) -> None:
     rule_path = Path(path)
     rule_path.parent.mkdir(parents=True, exist_ok=True)
+    content = _serialize_simple_rule_rows(rows)
 
-    with rule_path.open("w", encoding="utf-8-sig", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=list(SIMPLE_RULE_HEADERS), extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
+    temp_path = rule_path.with_name(f".{rule_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        _write_text(temp_path, content)
+        os.replace(os.fspath(temp_path), os.fspath(rule_path))
+    except OSError:
+        _write_text_with_powershell(rule_path, content)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+def _serialize_simple_rule_rows(rows: list[dict[str, Any]]) -> str:
+    file = io.StringIO(newline="")
+    writer = csv.DictWriter(file, fieldnames=list(SIMPLE_RULE_HEADERS), extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return file.getvalue()
+
+
+def _write_text(path: Path, content: str) -> None:
+    try:
+        with open(os.fspath(path), "w", encoding="utf-8-sig", newline="") as file:
+            file.write(content)
+    except OSError as exc:
+        if exc.errno != errno.EBADF:
+            raise
+        _write_text_low_level(path, content)
+
+
+def _write_text_low_level(path: Path, content: str) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+
+    descriptor = os.open(os.fspath(path), flags, 0o666)
+    try:
+        data = content.encode("utf-8-sig")
+        while data:
+            written = os.write(descriptor, data)
+            data = data[written:]
+    finally:
+        os.close(descriptor)
+
+
+def _write_text_with_powershell(path: Path, content: str) -> None:
+    command = (
+        "$target = $env:RULE_EDITOR_TARGET_PATH; "
+        "$base64 = [Console]::In.ReadToEnd(); "
+        "$bytes = [Convert]::FromBase64String($base64); "
+        "[System.IO.File]::WriteAllBytes($target, $bytes)"
+    )
+    encoded = base64.b64encode(content.encode("utf-8-sig")).decode("ascii")
+    env = os.environ.copy()
+    env["RULE_EDITOR_TARGET_PATH"] = os.fspath(path)
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-Command", command],
+        input=encoded,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout or "PowerShell file write failed").strip()
+        raise OSError(message)
 
 
 def append_simple_rule(

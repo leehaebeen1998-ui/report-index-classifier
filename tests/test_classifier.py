@@ -14,6 +14,7 @@ from index_classifier import (
 )
 from index_classifier.simple_rule_table import append_simple_rule, delete_simple_rule, read_simple_rule_rows
 from index_classifier.ai import AIRequest, AIResponse
+from index_classifier.report_io import read_report_rows
 
 
 def sample_index():
@@ -290,6 +291,21 @@ class ClassifierTests(unittest.TestCase):
 
             self.assertEqual(removed["매칭값"], "https://example.com/drug")
             self.assertEqual(read_simple_rule_rows(path), [])
+
+    def test_report_reader_skips_naver_title_row(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "naver.csv"
+            path.write_text(
+                '"형사_키워드_주간 보고서(2026.06.29.~2026.06.29.),1826631"\n'
+                "일별,캠페인유형,URL,캠페인,광고그룹,키워드\n"
+                "2026.06.29.,파워링크,https://example.com,C_성범죄,G_강간,카촬\n",
+                encoding="utf-8-sig",
+            )
+
+            rows = read_report_rows(path)
+
+            self.assertEqual(rows[0]["캠페인"], "C_성범죄")
+            self.assertEqual(rows[0]["광고그룹"], "G_강간")
 
 
 if __name__ == "__main__":

@@ -5,3 +5,5 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+validation_outputs/*
+!validation_outputs/.gitkeep

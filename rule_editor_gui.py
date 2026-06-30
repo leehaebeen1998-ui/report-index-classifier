@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import argparse
 import tkinter as tk
+from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from index_classifier.simple_rule_table import (
     DEFAULT_CONFIDENCE_BY_PRIORITY,
     RULE_LABELS,
-    append_simple_rule,
-    delete_simple_rule,
     read_simple_rule_rows,
     write_simple_rule_rows,
 )
@@ -22,9 +21,8 @@ class RuleEditorApp(tk.Tk):
         self.geometry("920x620")
         self.minsize(820, 520)
 
-        self.rules_path = rules_path
-        if not self.rules_path.exists():
-            write_simple_rule_rows(self.rules_path, [])
+        self.rules_path = rules_path.resolve()
+        self.rows = read_simple_rule_rows(self.rules_path)
 
         self.tab_widgets: dict[int, dict[str, tk.Widget | ttk.Treeview]] = {}
 
@@ -42,6 +40,8 @@ class RuleEditorApp(tk.Tk):
         path_entry.pack(side="left", fill="x", expand=True, padx=8)
 
         ttk.Button(frame, text="다른 규칙표 열기", command=self.choose_rules_file).pack(side="left")
+        ttk.Button(frame, text="파일 저장", command=self.save_rules).pack(side="left", padx=(6, 0))
+        ttk.Button(frame, text="다른 이름으로 저장", command=self.save_rules_as).pack(side="left", padx=(6, 0))
         ttk.Button(frame, text="새로고침", command=self.refresh_all_tabs).pack(side="left", padx=(6, 0))
 
     def _build_tabs(self) -> None:
@@ -146,11 +146,54 @@ class RuleEditorApp(tk.Tk):
         )
         if not selected:
             return
-        self.rules_path = Path(selected)
-        if not self.rules_path.exists():
-            write_simple_rule_rows(self.rules_path, [])
+        self.rules_path = Path(selected).resolve()
+        self.rows = read_simple_rule_rows(self.rules_path)
         self.path_var.set(str(self.rules_path))
         self.refresh_all_tabs()
+
+    def save_rules(self, *, offer_save_as: bool = True) -> bool:
+        try:
+            write_simple_rule_rows(self.rules_path, self.rows)
+        except OSError as exc:
+            if offer_save_as and messagebox.askyesno(
+                "원본 저장 실패",
+                "현재 규칙표 파일에 바로 저장하지 못했습니다.\n\n"
+                "로우프로그램, Excel, OneDrive 동기화 등이 파일을 잡고 있을 수 있습니다.\n\n"
+                "다른 이름으로 저장하시겠습니까?",
+            ):
+                self.save_rules_as()
+                return False
+
+            messagebox.showerror(
+                "저장 실패",
+                "규칙표 파일을 저장하지 못했습니다.\n\n"
+                "로우프로그램, Excel, 메모장 등에서 이 CSV를 사용 중이면 닫은 뒤 다시 시도하거나 "
+                "'다른 이름으로 저장'을 눌러 새 파일로 저장해 주세요.\n\n"
+                f"{exc}",
+            )
+            return False
+
+        messagebox.showinfo("저장 완료", "규칙표 파일을 저장했습니다.")
+        return True
+
+    def save_rules_as(self) -> None:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        initialfile = f"{self.rules_path.stem}.{timestamp}{self.rules_path.suffix or '.csv'}"
+        selected = filedialog.asksaveasfilename(
+            title="규칙표 다른 이름으로 저장",
+            defaultextension=".csv",
+            initialfile=initialfile,
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if not selected:
+            return
+
+        previous_path = self.rules_path
+        self.rules_path = Path(selected).resolve()
+        self.path_var.set(str(self.rules_path))
+        if not self.save_rules(offer_save_as=False):
+            self.rules_path = previous_path
+            self.path_var.set(str(self.rules_path))
 
     def add_rule(self, priority: int) -> None:
         widgets = self.tab_widgets[priority]
@@ -171,17 +214,20 @@ class RuleEditorApp(tk.Tk):
             messagebox.showwarning("입력 확인", "신뢰도는 0~1 사이 숫자로 입력해 주세요.")
             return
 
-        append_simple_rule(
-            self.rules_path,
-            priority=priority,
-            match_value=match_value,
-            category=category,
-            confidence=confidence,
-            memo=memo,
+        self.rows.append(
+            {
+                "순위": str(priority),
+                "규칙": RULE_LABELS[priority],
+                "매칭값": match_value,
+                "카테고리": category,
+                "신뢰도": confidence or DEFAULT_CONFIDENCE_BY_PRIORITY[priority],
+                "사용": "O",
+                "메모": memo,
+            }
         )
         self.clear_inputs(priority)
         self.refresh_all_tabs()
-        messagebox.showinfo("저장 완료", "규칙이 저장되었습니다.")
+        messagebox.showinfo("추가 완료", "규칙을 화면 목록에 추가했습니다.\n\n상단의 '파일 저장'을 눌러 CSV에 저장해 주세요.")
 
     def delete_selected_rule(self, priority: int) -> None:
         tree = self._tree(self.tab_widgets[priority]["tree"])
@@ -195,7 +241,7 @@ class RuleEditorApp(tk.Tk):
         if not messagebox.askyesno("삭제 확인", "선택한 규칙을 삭제할까요?"):
             return
 
-        delete_simple_rule(self.rules_path, one_based_index=one_based_index)
+        del self.rows[one_based_index - 1]
         self.refresh_all_tabs()
 
     def clear_inputs(self, priority: int) -> None:
@@ -206,13 +252,12 @@ class RuleEditorApp(tk.Tk):
         self._var(widgets["memo"]).set("")
 
     def refresh_all_tabs(self) -> None:
-        rows = read_simple_rule_rows(self.rules_path)
         for priority, widgets in self.tab_widgets.items():
             tree = self._tree(widgets["tree"])
             for item in tree.get_children():
                 tree.delete(item)
 
-            for one_based_index, row in enumerate(rows, start=1):
+            for one_based_index, row in enumerate(self.rows, start=1):
                 if str(row.get("순위", "")).strip() != str(priority):
                     continue
                 tree.insert(
@@ -259,7 +304,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    app = RuleEditorApp(Path(args.rules))
+    app = RuleEditorApp(Path(args.rules).resolve())
     app.mainloop()
 
 

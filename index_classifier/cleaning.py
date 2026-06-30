@@ -8,11 +8,10 @@ from typing import Any
 from .ai import AIAnalyzer
 from .classifier import ClassificationEngine
 from .store import load_index
-from .report_io import read_report_rows, write_csv_rows
+from .report_io import read_report_rows, write_csv_rows, write_text
 
 
 CLASSIFICATION_FIELDS: tuple[str, ...] = (
-    "category",
     "classification_confidence",
     "classification_priority",
     "classification_rule_id",
@@ -21,15 +20,38 @@ CLASSIFICATION_FIELDS: tuple[str, ...] = (
 )
 
 DEFAULT_OUTPUT_FIELDS: tuple[str, ...] = (
-    "account_id",
-    "brand_id",
+    "date",
+    "media",
     "campaign_type",
     "campaign_name",
     "group_name",
+    "creative_name",
+    "device",
+    "ad_type",
     "keyword_name",
     "url",
-    "creative_name",
+    "category",
+    "impressions",
+    "clicks",
+    "cost",
+    "conversion_count",
+    "purchase_conversion_count",
+    "purchase_conversion_revenue",
+    "general_inquiry_conversion_count",
+    "phone_conversion_count",
+    "kakao_conversion_count",
+    "channel_talk_conversion_count",
+    "youtube_subscribe_conversion_count",
+    "db_conversion_count",
+    "session_revenue",
+    "direct_revenue",
+    "total_revenue",
+    "conversion_rate",
+    "cost_per_conversion",
+    "account_id",
+    "brand_id",
     "ad_text",
+    "source_file",
     *CLASSIFICATION_FIELDS,
 )
 
@@ -195,9 +217,11 @@ class ReportRowCleaner:
             "applied_index_version": self.index.get("index_version"),
             "entries": entries,
         }
-        with log_path.open("w", encoding="utf-8") as file:
-            json.dump(payload, file, ensure_ascii=False, indent=self.config.log_indent)
-            file.write("\n")
+        write_text(
+            log_path,
+            f"{json.dumps(payload, ensure_ascii=False, indent=self.config.log_indent)}\n",
+            encoding="utf-8",
+        )
 
 
 def clean_report_file(
